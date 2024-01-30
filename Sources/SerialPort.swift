@@ -4,6 +4,8 @@ public class SerialPort {
 	var path: String
 	var fileDescriptor: Int32?
 
+	private var isOpen: Bool { fileDescriptor != nil }
+
 	private var pollSource: DispatchSourceRead?
 	private var readDataStream: AsyncStream<Data>?
 	private var readBytesStream: AsyncStream<UInt8>?
@@ -18,13 +20,10 @@ public class SerialPort {
 	}
 
 	public func openPort(toReceive receive: Bool, andTransmit transmit: Bool) throws {
-		guard !path.isEmpty else {
-			throw PortError.invalidPath
-		}
+		guard !path.isEmpty else { throw PortError.invalidPath }
+		guard isOpen == false else { throw PortError.instanceAlreadyOpen }
 
-		guard receive || transmit else {
-			throw PortError.mustReceiveOrTransmit
-		}
+		guard receive || transmit else { throw PortError.mustReceiveOrTransmit }
 
 		var readWriteParam : Int32
 
@@ -86,9 +85,9 @@ public class SerialPort {
 		useHardwareFlowControl: Bool = false,
 		useSoftwareFlowControl: Bool = false,
 		processOutput: Bool = false
-	) {
+	) throws {
 		guard let fileDescriptor = fileDescriptor else {
-			return
+			throw PortError.mustBeOpen
 		}
 
 		// Set up the control structure
@@ -314,7 +313,7 @@ extension SerialPort {
 
 	public func asyncData() throws -> AsyncStream<Data> {
 		guard
-			fileDescriptor != nil,
+			isOpen,
 			let readDataStream
 		else {
 			throw PortError.mustBeOpen
@@ -325,7 +324,7 @@ extension SerialPort {
 
 	public func asyncBytes() throws -> AsyncStream<UInt8> {
 		guard
-			fileDescriptor != nil,
+			isOpen,
 			let readDataStream
 		else {
 			throw PortError.mustBeOpen
@@ -350,11 +349,7 @@ extension SerialPort {
 	}
 
 	public func asyncLines() throws -> AsyncStream<String> {
-		guard
-			fileDescriptor != nil
-		else {
-			throw PortError.mustBeOpen
-		}
+		guard isOpen else { throw PortError.mustBeOpen }
 
 		if let existing = readLinesStream {
 			return existing
@@ -391,7 +386,6 @@ extension SerialPort {
 // MARK: Transmitting
 
 extension SerialPort {
-
 	public func writeBytes(from buffer: UnsafeMutablePointer<UInt8>, size: Int) throws -> Int {
 		guard let fileDescriptor = fileDescriptor else {
 			throw PortError.mustBeOpen

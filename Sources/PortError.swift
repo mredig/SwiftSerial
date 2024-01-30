@@ -8,4 +8,5 @@ public enum PortError: Int32, Error {
 	case stringsMustBeUTF8
 	case unableToConvertByteToCharacter
 	case deviceNotConnected
+	case instanceAlreadyOpen
 }
