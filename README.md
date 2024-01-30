@@ -35,6 +35,8 @@ try serialPort.writeString("foo")
 try serialPort.writeData(Data([1,2,3,4]))
 ```
 
+See the demo CLI app `SwiftTerminal` for a working example.
+
 ### SPM Import
 ```swift
 .package(url: "https://github.com/mredig/SwiftSerial", .upToNextMinor("1.0.0")
@@ -50,3 +52,4 @@ method, where you need to know exactly how many bytes or lines to read.
 * Thread safety
 * BaudRate has UInt initializer
 * Added `SwiftTerminal` demo to connect and interface with a serial connection
+* I kept the original methods that I changed around, but marked as deprecated. I intend to eventually remove them, but I don't want to disrupt anyone relying on this in the meantime.
