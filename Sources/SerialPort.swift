@@ -194,6 +194,7 @@ public class SerialPort {
 
 extension SerialPort {
 
+	@available(*, deprecated, message: "Use async reading methods")
 	public func readBytes(into buffer: UnsafeMutablePointer<UInt8>, size: Int) throws -> Int {
 		guard let fileDescriptor = fileDescriptor else {
 			throw PortError.mustBeOpen
@@ -209,6 +210,7 @@ extension SerialPort {
 		return bytesRead
 	}
 
+	@available(*, deprecated, message: "Use async reading methods")
 	public func readData(ofLength length: Int) throws -> Data {
 		let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: length)
 		defer {
@@ -229,6 +231,7 @@ extension SerialPort {
 		return data
 	}
 
+	@available(*, deprecated, message: "Use async reading methods")
 	public func readString(ofLength length: Int) throws -> String {
 		var remainingBytesToRead = length
 		var result = ""
@@ -247,6 +250,7 @@ extension SerialPort {
 		return result
 	}
 
+	@available(*, deprecated, message: "Use async reading methods")
 	public func readUntilChar(_ terminator: CChar) throws -> String {
 		var data = Data()
 		let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: 1)
@@ -278,11 +282,13 @@ extension SerialPort {
 		}
 	}
 
+	@available(*, deprecated, message: "Use async reading methods")
 	public func readLine() throws -> String {
 		let newlineChar = CChar(10) // Newline/Line feed character `\n` is 10
 		return try readUntilChar(newlineChar)
 	}
 
+	@available(*, deprecated, message: "Use async reading methods")
 	public func readByte() throws -> UInt8 {
 		let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: 1)
 
@@ -299,6 +305,7 @@ extension SerialPort {
 		}
 	}
 
+	@available(*, deprecated, message: "Use async reading methods")
 	public func readChar() throws -> UnicodeScalar {
 		let byteRead = try readByte()
 		let character = UnicodeScalar(byteRead)
