@@ -15,8 +15,7 @@ let serialPort = SerialPort(path: "/dev/cu.usbmodem1234") // you'll need to find
 try serialPort.openPort()
 
 serialPort.setSettings(
-	receiveRate: 115200,
-	transmitRate: 115200,
+	baudRateSetting: .symmetrical(.baud115200),
 	minimumBytesToRead: 1)
 
 
@@ -28,6 +27,7 @@ Task {
 		print(line, terminator: "")
 	}
 }
+
 
 // send data
 try serialPort.writeString("foo")

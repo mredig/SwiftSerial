@@ -20,7 +20,7 @@ struct Terminal: AsyncParsableCommand {
 	func run() async throws {
 		let serialPort = SerialPort(path: path)
 		try serialPort.openPort()
-		try serialPort.setSettings(receiveRate: baudRate, transmitRate: baudRate, minimumBytesToRead: 1)
+		try serialPort.setSettings(baudRateSetting: .symmetrical(baudRate), minimumBytesToRead: 1)
 
 		readTask = Task {
 			let lines = try serialPort.asyncLines()

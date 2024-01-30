@@ -73,9 +73,26 @@ public class SerialPort {
 		self.readDataStream = stream
 	}
 
+	public struct BaudRateSetting {
+		public let receiveRate: BaudRate
+		public let transmitRate: BaudRate
+
+		public init(receiveRate: BaudRate, transmitRate: BaudRate) {
+			self.receiveRate = receiveRate
+			self.transmitRate = transmitRate
+		}
+
+		public static func symmetrical(_ baudRate: BaudRate) -> BaudRateSetting {
+			Self(receiveRate: baudRate, transmitRate: baudRate)
+		}
+
+		public static func asymmetrical(receiveRate: BaudRate, transmitRate: BaudRate) -> BaudRateSetting {
+			Self(receiveRate: receiveRate, transmitRate: transmitRate)
+		}
+	}
+
 	public func setSettings(
-		receiveRate: BaudRate,
-		transmitRate: BaudRate,
+		baudRateSetting: BaudRateSetting,
 		minimumBytesToRead: Int,
 		timeout: Int = 0, /* 0 means wait indefinitely */
 		parityType: ParityType = .none,
@@ -98,8 +115,8 @@ public class SerialPort {
 		tcgetattr(fileDescriptor, &settings)
 
 		// Set baud rates
-		cfsetispeed(&settings, receiveRate.speedValue)
-		cfsetospeed(&settings, transmitRate.speedValue)
+		cfsetispeed(&settings, baudRateSetting.receiveRate.speedValue)
+		cfsetospeed(&settings, baudRateSetting.transmitRate.speedValue)
 
 		// Enable parity (even/odd) if needed
 		settings.c_cflag |= parityType.parityValue

@@ -1,6 +1,31 @@
 import Foundation
 
 extension SerialPort {
+	@available(*, deprecated, message: "Use `setSettings(baudRateSetting:.....)` instead")
+	public func setSettings(
+		receiveRate: BaudRate,
+		transmitRate: BaudRate,
+		minimumBytesToRead: Int,
+		timeout: Int = 0, /* 0 means wait indefinitely */
+		parityType: ParityType = .none,
+		sendTwoStopBits: Bool = false, /* 1 stop bit is the default */
+		dataBitsSize: DataBitsSize = .bits8,
+		useHardwareFlowControl: Bool = false,
+		useSoftwareFlowControl: Bool = false,
+		processOutput: Bool = false
+	) throws {
+		try setSettings(
+			baudRateSetting: .asymmetrical(receiveRate: receiveRate, transmitRate: transmitRate),
+			minimumBytesToRead: minimumBytesToRead,
+			timeout: timeout,
+			parityType: parityType,
+			sendTwoStopBits: sendTwoStopBits,
+			dataBitsSize: dataBitsSize,
+			useHardwareFlowControl: useHardwareFlowControl,
+			useSoftwareFlowControl: useSoftwareFlowControl,
+			processOutput: processOutput)
+	}
+
 	@available(*, deprecated, message: "Use `open(portMode:)` instead")
 	public func openPort(toReceive receive: Bool, andTransmit transmit: Bool) throws {
 		switch (receive, transmit) {
@@ -14,7 +39,6 @@ extension SerialPort {
 			throw PortError.mustReceiveOrTransmit
 		}
 	}
-
 
 	@available(*, deprecated, message: "Use async reading methods")
 	public func readBytes(into buffer: UnsafeMutablePointer<UInt8>, size: Int) throws -> Int {
