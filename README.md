@@ -39,3 +39,12 @@ try serialPort.writeData(Data([1,2,3,4]))
 ```swift
 .package(url: "https://github.com/mredig/SwiftSerial", .upToNextMinor("1.0.0")
 ```
+
+### What's New?
+* Modernized and Swiftier syntax
+* TABS!
+	* Modular indentation style, allowing for anyone to read the code however it reads best to them
+* Broke separate symbols into their own files
+* Monitoring output and delivering via AsyncStream for reading instead of the old polling, or dare I say, omniscience, 
+method, where you need to know exactly how many bytes or lines to read.
+* Thread safety

@@ -11,11 +11,15 @@ public class SerialPort {
 	private var readBytesStream: AsyncStream<UInt8>?
 	private var readLinesStream: AsyncStream<String>?
 
+	private let lock = NSLock()
+
 	public init(path: String) {
 		self.path = path
 	}
 
 	public func openPort(portMode: PortMode = .receiveAndTransmit) throws {
+		lock.lock()
+		defer { lock.unlock() }
 		guard !path.isEmpty else { throw PortError.invalidPath }
 		guard isOpen == false else { throw PortError.instanceAlreadyOpen }
 
@@ -47,7 +51,9 @@ public class SerialPort {
 		else { return }
 		let pollSource = DispatchSource.makeReadSource(fileDescriptor: fileDescriptor, queue: .global(qos: .default))
 		let stream = AsyncStream<Data> { continuation in
-			pollSource.setEventHandler {
+			pollSource.setEventHandler { [lock] in
+				lock.lock()
+				defer { lock.unlock() }
 
 				let bufferSize = 1024
 				let buffer = UnsafeMutableRawPointer
@@ -79,6 +85,8 @@ public class SerialPort {
 		useSoftwareFlowControl: Bool = false,
 		processOutput: Bool = false
 	) throws {
+		lock.lock()
+		defer { lock.unlock() }
 		guard let fileDescriptor = fileDescriptor else {
 			throw PortError.mustBeOpen
 		}
@@ -168,6 +176,8 @@ public class SerialPort {
 	}
 
 	public func closePort() {
+		lock.lock()
+		defer { lock.unlock() }
 		pollSource?.cancel()
 		pollSource = nil
 
@@ -259,6 +269,8 @@ extension SerialPort {
 // MARK: Transmitting
 extension SerialPort {
 	public func writeBytes(from buffer: UnsafeMutablePointer<UInt8>, size: Int) throws -> Int {
+		lock.lock()
+		defer { lock.unlock() }
 		guard let fileDescriptor = fileDescriptor else {
 			throw PortError.mustBeOpen
 		}
