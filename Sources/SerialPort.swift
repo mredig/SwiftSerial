@@ -15,26 +15,19 @@ public class SerialPort {
 		self.path = path
 	}
 
-	public func openPort() throws {
-		try openPort(toReceive: true, andTransmit: true)
-	}
-
-	public func openPort(toReceive receive: Bool, andTransmit transmit: Bool) throws {
+	public func openPort(portMode: PortMode = .receiveAndTransmit) throws {
 		guard !path.isEmpty else { throw PortError.invalidPath }
 		guard isOpen == false else { throw PortError.instanceAlreadyOpen }
 
-		guard receive || transmit else { throw PortError.mustReceiveOrTransmit }
+		let readWriteParam: Int32
 
-		var readWriteParam : Int32
-
-		if receive && transmit {
-			readWriteParam = O_RDWR
-		} else if receive {
+		switch portMode {
+		case .receive:
 			readWriteParam = O_RDONLY
-		} else if transmit {
+		case .transmit:
 			readWriteParam = O_WRONLY
-		} else {
-			fatalError()
+		case .receiveAndTransmit:
+			readWriteParam = O_RDWR
 		}
 
 		#if os(Linux)
@@ -49,7 +42,7 @@ public class SerialPort {
 		}
 
 		guard
-			receive,
+			portMode.receive,
 			let fileDescriptor
 		else { return }
 		let pollSource = DispatchSource.makeReadSource(fileDescriptor: fileDescriptor, queue: .global(qos: .default))

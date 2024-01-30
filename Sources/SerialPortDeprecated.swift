@@ -1,6 +1,21 @@
 import Foundation
 
 extension SerialPort {
+	@available(*, deprecated, message: "Use `open(portMode:)` instead")
+	public func openPort(toReceive receive: Bool, andTransmit transmit: Bool) throws {
+		switch (receive, transmit) {
+		case (true, false):
+			try openPort(portMode: .receive)
+		case (false, true):
+			try openPort(portMode: .transmit)
+		case (true, true):
+			try openPort(portMode: .receiveAndTransmit)
+		case (false, false):
+			throw PortError.mustReceiveOrTransmit
+		}
+	}
+
+
 	@available(*, deprecated, message: "Use async reading methods")
 	public func readBytes(into buffer: UnsafeMutablePointer<UInt8>, size: Int) throws -> Int {
 		guard let fileDescriptor = fileDescriptor else {
