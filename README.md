@@ -48,3 +48,5 @@ try serialPort.writeData(Data([1,2,3,4]))
 * Monitoring output and delivering via AsyncStream for reading instead of the old polling, or dare I say, omniscience, 
 method, where you need to know exactly how many bytes or lines to read.
 * Thread safety
+* BaudRate has UInt initializer
+* Added `SwiftTerminal` demo to connect and interface with a serial connection

@@ -34,6 +34,75 @@ public enum BaudRate {
 	case baud4000000
 	#endif
 
+	public init(_ value: UInt) throws {
+		switch value {
+		case 0:
+			self = .baud0
+		case 50:
+			self = .baud50
+		case 75:
+			self = .baud75
+		case 110:
+			self = .baud110
+		case 134:
+			self = .baud134
+		case 150:
+			self = .baud150
+		case 200:
+			self = .baud200
+		case 300:
+			self = .baud300
+		case 600:
+			self = .baud600
+		case 1200:
+			self = .baud1200
+		case 1800:
+			self = .baud1800
+		case 2400:
+			self = .baud2400
+		case 4800:
+			self = .baud4800
+		case 9600:
+			self = .baud9600
+		case 19200:
+			self = .baud19200
+		case 38400:
+			self = .baud38400
+		case 57600:
+			self = .baud57600
+		case 115200:
+			self = .baud115200
+		case 230400:
+			self = .baud230400
+		#if os(Linux)
+		case 460800:
+			self = .baud460800
+		case 500000:
+			self = .baud500000
+		case 576000:
+			self = .baud576000
+		case 921600:
+			self = .baud921600
+		case 1000000:
+			self = .baud1000000
+		case 1152000:
+			self = .baud1152000
+		case 1500000:
+			self = .baud1500000
+		case 2000000:
+			self = .baud2000000
+		case 2500000:
+			self = .baud2500000
+		case 3500000:
+			self = .baud3500000
+		case 4000000:
+			self = .baud4000000
+		#endif
+		default:
+			throw PortError.invalidPort
+		}
+	}
+
 	var speedValue: speed_t {
 		switch self {
 		case .baud0:

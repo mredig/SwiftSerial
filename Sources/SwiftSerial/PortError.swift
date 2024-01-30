@@ -9,4 +9,5 @@ public enum PortError: Int32, Error {
 	case unableToConvertByteToCharacter
 	case deviceNotConnected
 	case instanceAlreadyOpen
+	case invalidPort
 }
