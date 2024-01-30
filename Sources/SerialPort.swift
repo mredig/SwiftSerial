@@ -38,11 +38,11 @@ public class SerialPort {
 			fatalError()
 		}
 
-#if os(Linux)
+		#if os(Linux)
 		fileDescriptor = open(path, readWriteParam | O_NOCTTY)
-#elseif os(OSX)
+		#elseif os(OSX)
 		fileDescriptor = open(path, readWriteParam | O_NOCTTY | O_EXLOCK)
-#endif
+		#endif
 
 		// Throw error if open() failed
 		if fileDescriptor == PortError.failedToOpen.rawValue {
@@ -75,21 +75,21 @@ public class SerialPort {
 		self.readDataStream = stream
 	}
 
-	public func setSettings(receiveRate: BaudRate,
-							transmitRate: BaudRate,
-							minimumBytesToRead: Int,
-							timeout: Int = 0, /* 0 means wait indefinitely */
-							parityType: ParityType = .none,
-							sendTwoStopBits: Bool = false, /* 1 stop bit is the default */
-							dataBitsSize: DataBitsSize = .bits8,
-							useHardwareFlowControl: Bool = false,
-							useSoftwareFlowControl: Bool = false,
-							processOutput: Bool = false) {
-
+	public func setSettings(
+		receiveRate: BaudRate,
+		transmitRate: BaudRate,
+		minimumBytesToRead: Int,
+		timeout: Int = 0, /* 0 means wait indefinitely */
+		parityType: ParityType = .none,
+		sendTwoStopBits: Bool = false, /* 1 stop bit is the default */
+		dataBitsSize: DataBitsSize = .bits8,
+		useHardwareFlowControl: Bool = false,
+		useSoftwareFlowControl: Bool = false,
+		processOutput: Bool = false
+	) {
 		guard let fileDescriptor = fileDescriptor else {
 			return
 		}
-
 
 		// Set up the control structure
 		var settings = termios()
@@ -119,13 +119,13 @@ public class SerialPort {
 		settings.c_iflag &= ~tcflag_t(ICRNL | INLCR | IGNCR)
 
 		// Set hardware flow control flag
-#if os(Linux)
+		#if os(Linux)
 		if useHardwareFlowControl {
 			settings.c_cflag |= tcflag_t(CRTSCTS)
 		} else {
 			settings.c_cflag &= ~tcflag_t(CRTSCTS)
 		}
-#elseif os(OSX)
+		#elseif os(OSX)
 		if useHardwareFlowControl {
 			settings.c_cflag |= tcflag_t(CRTS_IFLOW)
 			settings.c_cflag |= tcflag_t(CCTS_OFLOW)
@@ -133,7 +133,7 @@ public class SerialPort {
 			settings.c_cflag &= ~tcflag_t(CRTS_IFLOW)
 			settings.c_cflag &= ~tcflag_t(CCTS_OFLOW)
 		}
-#endif
+		#endif
 
 		// Set software flow control flags
 		let softwareFlowControlFlags = tcflag_t(IXON | IXOFF | IXANY)
@@ -159,13 +159,13 @@ public class SerialPort {
 		//Special characters
 		//We do this as c_cc is a C-fixed array which is imported as a tuple in Swift.
 		//To avoid hardcoding the VMIN or VTIME value to access the tuple value, we use the typealias instead
-#if os(Linux)
+		#if os(Linux)
 		typealias specialCharactersTuple = (VINTR: cc_t, VQUIT: cc_t, VERASE: cc_t, VKILL: cc_t, VEOF: cc_t, VTIME: cc_t, VMIN: cc_t, VSWTC: cc_t, VSTART: cc_t, VSTOP: cc_t, VSUSP: cc_t, VEOL: cc_t, VREPRINT: cc_t, VDISCARD: cc_t, VWERASE: cc_t, VLNEXT: cc_t, VEOL2: cc_t, spare1: cc_t, spare2: cc_t, spare3: cc_t, spare4: cc_t, spare5: cc_t, spare6: cc_t, spare7: cc_t, spare8: cc_t, spare9: cc_t, spare10: cc_t, spare11: cc_t, spare12: cc_t, spare13: cc_t, spare14: cc_t, spare15: cc_t)
 		var specialCharacters: specialCharactersTuple = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) // NCCS = 32
-#elseif os(OSX)
+		#elseif os(OSX)
 		typealias specialCharactersTuple = (VEOF: cc_t, VEOL: cc_t, VEOL2: cc_t, VERASE: cc_t, VWERASE: cc_t, VKILL: cc_t, VREPRINT: cc_t, spare1: cc_t, VINTR: cc_t, VQUIT: cc_t, VSUSP: cc_t, VDSUSP: cc_t, VSTART: cc_t, VSTOP: cc_t, VLNEXT: cc_t, VDISCARD: cc_t, VMIN: cc_t, VTIME: cc_t, VSTATUS: cc_t, spare: cc_t)
 		var specialCharacters: specialCharactersTuple = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) // NCCS = 20
-#endif
+		#endif
 
 		specialCharacters.VMIN = cc_t(minimumBytesToRead)
 		specialCharacters.VTIME = cc_t(timeout)
