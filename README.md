@@ -14,7 +14,7 @@ import SwiftSerial
 let serialPort = SerialPort(path: "/dev/cu.usbmodem1234") // you'll need to find the correct device on your own, but this is what it will resemble on a mac
 try serialPort.openPort()
 
-serialPort.setSettings(
+try serialPort.setSettings(
 	baudRateSetting: .symmetrical(.baud115200),
 	minimumBytesToRead: 1)
 
