@@ -2,7 +2,7 @@
 
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmredig%2FSwiftSerial%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/mredig/SwiftSerial) [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmredig%2FSwiftSerial%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/mredig/SwiftSerial)
 
-This project began its life as yeokm1's [SwiftSerial](https://github.com/yeokm1/SwiftSerial). He has since archived the project and was kind enough to link this project going forward.
+This project began its life as yeokm1's [SwiftSerial](https://github.com/yeokm1/SwiftSerial). He has since archived the project and was kind enough to link this fork going forward.
 
 ### Getting started
 
