@@ -10,8 +10,9 @@ struct Terminal: AsyncParsableCommand {
 	var path: String
 
 	@Argument(help: "Baud Rate", transform: {
-		let value = UInt($0) ?? 1
-		return try BaudRate(value)
+        return try BaudRate(UInt($0) ?? 1) ?? {
+            throw ValidationError("Invalid Baud Rate value")
+        }()
 	})
 	var baudRate: BaudRate
 

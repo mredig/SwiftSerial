@@ -1,8 +1,12 @@
+#if canImport(Darwin)
+import Darwin
+#endif
 import Foundation
 
 public class SerialPort {
-	var path: String
-	var fileDescriptor: Int32?
+
+	let path: String
+	private(set) var fileDescriptor: Int32?
 
 	private var isOpen: Bool { fileDescriptor != nil }
 
@@ -10,6 +14,7 @@ public class SerialPort {
 	private var readDataStream: AsyncStream<Data>?
 	private var readBytesStream: AsyncStream<UInt8>?
 	private var readLinesStream: AsyncStream<String>?
+    private var timeout: Int = 0
 
 	private let lock = NSLock()
 
@@ -17,38 +22,30 @@ public class SerialPort {
 		self.path = path
 	}
 
+    /**
+     Open a serial port with provided flags
+
+     - Parameter portMode: POSIX [open()](https://linux.die.net/man/2/open) flags
+        Wraps posix file open flags such as `O_RDWR`, `O_RDWR` and others
+        Can be initialized directly with POSIX flags using `PortMode(rawValue:)`
+        The default value is `.receiveAndTransmit` which matches `O_RDWR | O_NOCTTY | O_EXLOCK` on macOS or `O_RDWR | O_NOCTTY`on linux
+
+     - Throws:
+       An error of type `PortError`. Can be `.invalidPath` or other `OSError errno` wrapped by `PortError.rawValue`. The error provides `localizedDescription`.
+     */
 	public func openPort(portMode: PortMode = .receiveAndTransmit) throws {
 		lock.lock()
 		defer { lock.unlock() }
-		guard !path.isEmpty else { throw PortError.invalidPath }
 		guard isOpen == false else { throw PortError.instanceAlreadyOpen }
 
-		let readWriteParam: Int32
-
-		switch portMode {
-		case .receive:
-			readWriteParam = O_RDONLY
-		case .transmit:
-			readWriteParam = O_WRONLY
-		case .receiveAndTransmit:
-			readWriteParam = O_RDWR
-		}
-
-		#if os(Linux)
-		fileDescriptor = open(path, readWriteParam | O_NOCTTY)
-		#elseif os(OSX)
-		fileDescriptor = open(path, readWriteParam | O_NOCTTY | O_EXLOCK)
-		#endif
+        fileDescriptor = open(path, portMode.rawValue)
 
 		// Throw error if open() failed
-		if fileDescriptor == PortError.failedToOpen.rawValue {
-			throw PortError.failedToOpen
-		}
+		guard let fileDescriptor, fileDescriptor >= 0 else { throw PortError(rawValue: errno) }
 
-		guard
-			portMode.receive,
-			let fileDescriptor
-		else { return }
+        // portMode should contain Read
+        guard portMode.contains(.readOnly) else { return }
+
 		let pollSource = DispatchSource.makeReadSource(fileDescriptor: fileDescriptor, queue: .global(qos: .default))
 		let stream = AsyncStream<Data> { continuation in
 			pollSource.setEventHandler { [lock] in
@@ -91,6 +88,37 @@ public class SerialPort {
 		}
 	}
 
+    /**
+      Sets the communication settings for the serial port.
+
+      - Parameters:
+        - baudRateSetting: The desired baud rate setting for the serial port.
+        - minimumBytesToRead: The minimum number of bytes to read before returning from a [read()](https://linux.die.net/man/2/read) operation.
+        - timeout: The inter-character timer value in tenths of a second. A value of 0 means wait indefinitely.
+        - parityType: The type of parity to use for error checking during communication. Default is no parity.
+        - sendTwoStopBits: A Boolean value indicating whether to send two stop bits. Default is false (one stop bit).
+        - dataBitsSize: The number of data bits in each character. Default is 8 bits.
+        - useHardwareFlowControl: A Boolean value indicating whether to use hardware flow control. Default is false.
+        - useSoftwareFlowControl: A Boolean value indicating whether to use software flow control. Default is false.
+        - processOutput: A Boolean value indicating whether to process output. Default is false.
+
+      - Throws:
+        An error of type `PortError`. Can be `.mustBeOpen` or other `OSError errno` wrapped by `PortError.rawValue`. The error provides `localizedDescription`.
+
+      - Note:
+        The `timeout` parameter specifies the inter-character timer value in tenths of a second.
+        A value of 0 means wait indefinitely for input.
+        A value of 10 means that the read operation will block until at least one character is received, or the timer expires after 1 second
+
+        Usage:
+        ```
+        serialPort.setSettings(receiveRate: .baud9600, transmitRate: .baud9600, minimumBytesToRead: 1)
+        ```
+
+        The port settings call can be as simple as the above. For the baud rate, just supply both transmit and receive even if you are only intending to use one transfer direction. For example, transmitRate will be ignored if you specified     `andTransmit : false` when opening the port.
+
+      - SeeAlso: `BaudRateSetting`, `ParityType`, `DataBitsSize`, `PortError`
+     */
 	public func setSettings(
 		baudRateSetting: BaudRateSetting,
 		minimumBytesToRead: Int,
@@ -112,11 +140,12 @@ public class SerialPort {
 		var settings = termios()
 
 		// Get options structure for the port
-		tcgetattr(fileDescriptor, &settings)
+        guard tcgetattr(fileDescriptor, &settings) == 0 else { throw PortError(rawValue: errno) }
 
 		// Set baud rates
 		cfsetispeed(&settings, baudRateSetting.receiveRate.speedValue)
 		cfsetospeed(&settings, baudRateSetting.transmitRate.speedValue)
+        self.timeout = timeout
 
 		// Enable parity (even/odd) if needed
 		settings.c_cflag |= parityType.parityValue
@@ -285,16 +314,53 @@ extension SerialPort {
 
 // MARK: Transmitting
 extension SerialPort {
-	public func writeBytes(from buffer: UnsafeMutablePointer<UInt8>, size: Int) throws -> Int {
-		lock.lock()
-		defer { lock.unlock() }
-		guard let fileDescriptor = fileDescriptor else {
-			throw PortError.mustBeOpen
-		}
 
-		let bytesWritten = write(fileDescriptor, buffer, size)
-		return bytesWritten
-	}
+    public func writeBytes(from buffer: UnsafeMutablePointer<UInt8>, size: Int) throws -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let fileDescriptor = fileDescriptor else {
+            throw PortError.mustBeOpen
+        }
+        var writefds = fd_set()
+        var totalBytesWritten = size_t()
+
+        while totalBytesWritten < size {
+            // Initialize the fd_set to an empty set
+            writefds.zero()
+            // Add fd_ to the writefds set
+            writefds.set(fileDescriptor)
+
+            // Wait for the file descriptor to become ready to write
+            var timeout = timespec(tv_sec: time_t(timeout * 10), tv_nsec: 0)
+            let r = pselect(fileDescriptor + 1, nil, &writefds, nil, &timeout, nil);
+
+            guard r > 0 else {
+                if r == 0 {
+                    throw PortError.timeout
+                }
+                let code = errno
+                // Select was interrupted, try again
+                if (code == EINTR) {
+                    continue;
+                }
+                // Otherwise there was some error
+                throw PortError(rawValue: code)
+            }
+
+            // Make sure our file descriptor is in the ready to write list
+            guard writefds.isSet(fileDescriptor) else {
+                assertionFailure("select reports ready to write, but our fd isn't in the list, this shouldn't happen!")
+                throw PortError.internalInconsistency
+            }
+
+            let bytesWritten = write(fileDescriptor, buffer + totalBytesWritten, size - totalBytesWritten)
+            guard bytesWritten >= 0 else { throw PortError(rawValue: errno) }
+
+            totalBytesWritten += bytesWritten;
+            assert(totalBytesWritten <= size, "write over wrote")
+        }
+        return totalBytesWritten;
+    }
 
 	public func writeData(_ data: Data) throws -> Int {
 		let size = data.count
@@ -309,9 +375,9 @@ extension SerialPort {
 		return bytesWritten
 	}
 
-	public func writeString(_ string: String) throws -> Int {
-		guard let data = string.data(using: String.Encoding.utf8) else {
-			throw PortError.stringsMustBeUTF8
+    public func writeString(_ string: String, encoding: String.Encoding = .utf8) throws -> Int {
+        guard let data = string.data(using: encoding) else {
+            throw CocoaError(.fileWriteInapplicableStringEncoding, userInfo: [NSStringEncodingErrorKey: encoding.rawValue])
 		}
 
 		return try writeData(data)
@@ -322,4 +388,122 @@ extension SerialPort {
 		let bytesWritten = try writeString(stringEquiv)
 		return bytesWritten
 	}
+}
+
+extension fd_set {
+
+    /**
+     Replacement for FD_ZERO macro.
+
+     - Parameter set: A pointer to a fd_set structure.
+
+     - Returns: The set that is opinted at is filled with all zero's.
+     */
+
+    mutating func zero() {
+        fds_bits = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    }
+
+    /**
+     Replacement for FD_SET macro
+
+     - Parameter fd: A file descriptor that offsets the bit to be set to 1 in the fd_set pointed at by 'set'.
+     - Parameter set: A pointer to a fd_set structure.
+
+     - Returns: The given set is updated in place, with the bit at offset 'fd' set to 1.
+
+     - Note: If you receive an EXC_BAD_INSTRUCTION at the mask statement, then most likely the socket was already closed.
+     */
+
+    mutating func set(_ fd: Int32) {
+        let intOffset = Int(fd / 32)
+        let bitOffset = fd % 32
+        let mask: Int32 = 1 << bitOffset
+        switch intOffset {
+        case 0: fds_bits.0 = fds_bits.0 | mask
+        case 1: fds_bits.1 = fds_bits.1 | mask
+        case 2: fds_bits.2 = fds_bits.2 | mask
+        case 3: fds_bits.3 = fds_bits.3 | mask
+        case 4: fds_bits.4 = fds_bits.4 | mask
+        case 5: fds_bits.5 = fds_bits.5 | mask
+        case 6: fds_bits.6 = fds_bits.6 | mask
+        case 7: fds_bits.7 = fds_bits.7 | mask
+        case 8: fds_bits.8 = fds_bits.8 | mask
+        case 9: fds_bits.9 = fds_bits.9 | mask
+        case 10: fds_bits.10 = fds_bits.10 | mask
+        case 11: fds_bits.11 = fds_bits.11 | mask
+        case 12: fds_bits.12 = fds_bits.12 | mask
+        case 13: fds_bits.13 = fds_bits.13 | mask
+        case 14: fds_bits.14 = fds_bits.14 | mask
+        case 15: fds_bits.15 = fds_bits.15 | mask
+        case 16: fds_bits.16 = fds_bits.16 | mask
+        case 17: fds_bits.17 = fds_bits.17 | mask
+        case 18: fds_bits.18 = fds_bits.18 | mask
+        case 19: fds_bits.19 = fds_bits.19 | mask
+        case 20: fds_bits.20 = fds_bits.20 | mask
+        case 21: fds_bits.21 = fds_bits.21 | mask
+        case 22: fds_bits.22 = fds_bits.22 | mask
+        case 23: fds_bits.23 = fds_bits.23 | mask
+        case 24: fds_bits.24 = fds_bits.24 | mask
+        case 25: fds_bits.25 = fds_bits.25 | mask
+        case 26: fds_bits.26 = fds_bits.26 | mask
+        case 27: fds_bits.27 = fds_bits.27 | mask
+        case 28: fds_bits.28 = fds_bits.28 | mask
+        case 29: fds_bits.29 = fds_bits.29 | mask
+        case 30: fds_bits.30 = fds_bits.30 | mask
+        case 31: fds_bits.31 = fds_bits.31 | mask
+        default: break
+        }
+    }
+
+    /**
+     Replacement for FD_ISSET macro
+
+     - Parameter fd: A file descriptor that offsets the bit to be tested in the fd_set pointed at by 'set'.
+     - Parameter set: A pointer to a fd_set structure.
+
+     - Returns: 'true' if the bit at offset 'fd' is 1, 'false' otherwise.
+     */
+
+    func isSet(_ fd: Int32) -> Bool {
+        let intOffset = Int(fd / 32)
+        let bitOffset = fd % 32
+        let mask: Int32 = 1 << bitOffset
+        switch intOffset {
+        case 0: return fds_bits.0 & mask != 0
+        case 1: return fds_bits.1 & mask != 0
+        case 2: return fds_bits.2 & mask != 0
+        case 3: return fds_bits.3 & mask != 0
+        case 4: return fds_bits.4 & mask != 0
+        case 5: return fds_bits.5 & mask != 0
+        case 6: return fds_bits.6 & mask != 0
+        case 7: return fds_bits.7 & mask != 0
+        case 8: return fds_bits.8 & mask != 0
+        case 9: return fds_bits.9 & mask != 0
+        case 10: return fds_bits.10 & mask != 0
+        case 11: return fds_bits.11 & mask != 0
+        case 12: return fds_bits.12 & mask != 0
+        case 13: return fds_bits.13 & mask != 0
+        case 14: return fds_bits.14 & mask != 0
+        case 15: return fds_bits.15 & mask != 0
+        case 16: return fds_bits.16 & mask != 0
+        case 17: return fds_bits.17 & mask != 0
+        case 18: return fds_bits.18 & mask != 0
+        case 19: return fds_bits.19 & mask != 0
+        case 20: return fds_bits.20 & mask != 0
+        case 21: return fds_bits.21 & mask != 0
+        case 22: return fds_bits.22 & mask != 0
+        case 23: return fds_bits.23 & mask != 0
+        case 24: return fds_bits.24 & mask != 0
+        case 25: return fds_bits.25 & mask != 0
+        case 26: return fds_bits.26 & mask != 0
+        case 27: return fds_bits.27 & mask != 0
+        case 28: return fds_bits.28 & mask != 0
+        case 29: return fds_bits.29 & mask != 0
+        case 30: return fds_bits.30 & mask != 0
+        case 31: return fds_bits.31 & mask != 0
+        default: return false
+        }
+    }
+
 }

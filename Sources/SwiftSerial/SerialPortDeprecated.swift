@@ -36,7 +36,7 @@ extension SerialPort {
 		case (true, true):
 			try openPort(portMode: .receiveAndTransmit)
 		case (false, false):
-			throw PortError.mustReceiveOrTransmit
+			fatalError("Must receive or transmit")
 		}
 	}
 
@@ -47,9 +47,9 @@ extension SerialPort {
 		}
 
 		var s: stat = stat()
-		fstat(fileDescriptor, &s)
+        guard fstat(fileDescriptor, &s) == 0 else { throw PortError(rawValue: errno) }
 		if s.st_nlink != 1 {
-			throw PortError.deviceNotConnected
+			throw PortError(rawValue: EMLINK) // too many links
 		}
 
 		let bytesRead = read(fileDescriptor, buffer, size)
@@ -109,7 +109,7 @@ extension SerialPort {
 
 			if bytesRead > 0 {
 				if ( buffer[0] > 127) {
-					throw PortError.unableToConvertByteToCharacter
+                    throw CocoaError(.fileReadUnknownStringEncoding, userInfo: [NSStringEncodingErrorKey: String.Encoding.ascii.rawValue])
 				}
 				let character = CChar(buffer[0])
 
@@ -124,7 +124,7 @@ extension SerialPort {
 		if let string = String(data: data, encoding: String.Encoding.utf8) {
 			return string
 		} else {
-			throw PortError.stringsMustBeUTF8
+            throw CocoaError(.fileReadUnknownStringEncoding, userInfo: [NSStringEncodingErrorKey: String.Encoding.utf8.rawValue])
 		}
 	}
 

@@ -34,7 +34,7 @@ public enum BaudRate {
 	case baud4000000
 	#endif
 
-	public init(_ value: UInt) throws {
+	public init?(_ value: UInt) {
 		switch value {
 		case 0:
 			self = .baud0
@@ -99,7 +99,7 @@ public enum BaudRate {
 			self = .baud4000000
 		#endif
 		default:
-			throw PortError.invalidPort
+			return nil
 		}
 	}
 
