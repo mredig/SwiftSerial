@@ -6,6 +6,8 @@ public struct PortError: RawRepresentable, Error, LocalizedError {
         case mustBeOpen = 0
         case instanceAlreadyOpen = -1
 
+        case unableToConvertByteToCharacter = -997
+        case stringsMustBeUTF8 = -998
         case internalInconsistency = -999
     }
 
@@ -14,6 +16,9 @@ public struct PortError: RawRepresentable, Error, LocalizedError {
 
     static let invalidPath = PortError(rawValue: ENOENT)
     static let timeout = PortError(rawValue: ETIMEDOUT)
+
+    static let stringsMustBeUTF8 = PortError(rawValue: SwiftSerialError.stringsMustBeUTF8.rawValue)
+    static let unableToConvertByteToCharacter = PortError(rawValue: SwiftSerialError.unableToConvertByteToCharacter.rawValue)
 
     static let internalInconsistency = PortError(rawValue: SwiftSerialError.internalInconsistency.rawValue)
 
@@ -30,8 +35,14 @@ public struct PortError: RawRepresentable, Error, LocalizedError {
         case .mustBeOpen:
             return "SerialPort must be open"
 
+        case .unableToConvertByteToCharacter:
+            return "unable to convert byte to character"
+        case .stringsMustBeUTF8:
+            return "Strings must be in UTF-8 encoding"
+
         case .internalInconsistency:
             return "Internal inconsistency"
+
         case .none:
             return String(cString: strerror(rawValue))
         }

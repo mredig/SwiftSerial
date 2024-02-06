@@ -109,7 +109,7 @@ extension SerialPort {
 
 			if bytesRead > 0 {
 				if ( buffer[0] > 127) {
-                    throw CocoaError(.fileReadUnknownStringEncoding, userInfo: [NSStringEncodingErrorKey: String.Encoding.ascii.rawValue])
+					throw PortError.unableToConvertByteToCharacter
 				}
 				let character = CChar(buffer[0])
 
@@ -124,7 +124,7 @@ extension SerialPort {
 		if let string = String(data: data, encoding: String.Encoding.utf8) {
 			return string
 		} else {
-            throw CocoaError(.fileReadUnknownStringEncoding, userInfo: [NSStringEncodingErrorKey: String.Encoding.utf8.rawValue])
+			throw PortError.stringsMustBeUTF8
 		}
 	}
 

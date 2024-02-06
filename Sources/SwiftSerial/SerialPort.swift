@@ -375,10 +375,9 @@ extension SerialPort {
 		return bytesWritten
 	}
 
-    public func writeString(_ string: String, encoding: String.Encoding = .utf8) throws -> Int {
-        guard let data = string.data(using: encoding) else {
-            throw CocoaError(.fileWriteInapplicableStringEncoding, userInfo: [NSStringEncodingErrorKey: encoding.rawValue])
-		}
+    public func writeString(_ string: String) throws -> Int {
+        // Valid String is always convertible to UTF-8
+        let data = string.data(using: .utf8)!
 
 		return try writeData(data)
 	}
