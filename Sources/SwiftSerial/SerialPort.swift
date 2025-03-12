@@ -1,7 +1,11 @@
 import Foundation
 
+/// SerialPort acts as the handle to manipulate and read the serial input and output.
 public class SerialPort {
+	
+	/// Path to the system device the serial port resides at. For example, `/dev/cu.serialsoemthingorother`
 	var path: String
+	/// Storage for the file descriptor of the path. Probably don't edit this. (I should probably make private, but I don't know if there's anything relying on it)
 	var fileDescriptor: Int32?
 
 	private var isOpen: Bool { fileDescriptor != nil }
@@ -12,12 +16,15 @@ public class SerialPort {
 	private var readLinesStream: AsyncStream<String>?
 
 	private let lock = NSLock()
-
+	
+	/// Create a new `SerialPort` object
+	/// - Parameter path: Path to the system device the serial port resides at. For example, `/dev/cu.serialsoemthingorother`
 	public init(path: String) {
 		self.path = path
 	}
 
-	public func openPort(portMode: PortMode = .receiveAndTransmit) throws {
+	/// Opens and establishes the connection with the serial port.
+	public func openPort(portMode: PortMode = .receiveAndTransmit) throws(PortError) {
 		lock.lock()
 		defer { lock.unlock() }
 		guard !path.isEmpty else { throw PortError.invalidPath }
@@ -72,7 +79,8 @@ public class SerialPort {
 		self.pollSource = pollSource
 		self.readDataStream = stream
 	}
-
+	
+	/// Value for the BaudRate of a connection
 	public struct BaudRateSetting {
 		public let receiveRate: BaudRate
 		public let transmitRate: BaudRate
@@ -90,7 +98,27 @@ public class SerialPort {
 			Self(receiveRate: receiveRate, transmitRate: transmitRate)
 		}
 	}
-
+	
+	/// Sets the settings of a serial port connection.
+	///
+	/// Many of these values should be referenced from the underlying C calls and structs:
+	///	* `tcsetattr`
+	/// * `termios`
+	/// * `cfsetispeed`
+	/// * `cfsetospeed`
+	/// * `cc_t`
+	/// * `tcflag_t`
+	///
+	/// - Parameters:
+	///   - baudRateSetting: Speed/baud rate of the connection
+	///   - minimumBytesToRead: The minimum bytes to read
+	///   - timeout: `0` means indefinite.
+	///   - parityType: parity type
+	///   - sendTwoStopBits: defaults to false. `1` stop bit is used on false
+	///   - dataBitsSize: defaults to `.bits8`
+	///   - useHardwareFlowControl: defaults to `false`
+	///   - useSoftwareFlowControl: defaults to `false`
+	///   - processOutput: defaults to `false`
 	public func setSettings(
 		baudRateSetting: BaudRateSetting,
 		minimumBytesToRead: Int,
@@ -191,7 +219,8 @@ public class SerialPort {
 		// Commit settings
 		tcsetattr(fileDescriptor, TCSANOW, &settings)
 	}
-
+	
+	/// Closes the port
 	public func closePort() {
 		lock.lock()
 		defer { lock.unlock() }
@@ -211,7 +240,8 @@ public class SerialPort {
 
 // MARK: Receiving
 extension SerialPort {
-	public func asyncData() throws -> AsyncStream<Data> {
+	/// Retrieves the `AsyncStream<Data>`. Don't run this more than once as streams can only produce output for a single subscriber.
+	public func asyncData() throws(PortError) -> AsyncStream<Data> {
 		guard
 			isOpen,
 			let readDataStream
@@ -222,6 +252,7 @@ extension SerialPort {
 		return readDataStream
 	}
 
+	/// Retrieves the `AsyncStream<UInt8>`. Don't run this more than once as streams can only produce output for a single subscriber.
 	public func asyncBytes() throws -> AsyncStream<UInt8> {
 		guard
 			isOpen,
@@ -248,6 +279,7 @@ extension SerialPort {
 		}
 	}
 
+	/// Retrieves the `AsyncStream<String>`. Don't run this more than once as streams can only produce output for a single subscriber.
 	public func asyncLines() throws -> AsyncStream<String> {
 		guard isOpen else { throw PortError.mustBeOpen }
 
@@ -285,6 +317,11 @@ extension SerialPort {
 
 // MARK: Transmitting
 extension SerialPort {
+	/// Writes to the `SerialPort`. You can also think of this as sending data.
+	/// - Parameters:
+	///   - buffer: pointer to the raw memory being sent
+	///   - size: how many bytes to read from `buffer`
+	/// - Returns: Count of bytes written
 	public func writeBytes(from buffer: UnsafeMutablePointer<UInt8>, size: Int) throws -> Int {
 		lock.lock()
 		defer { lock.unlock() }
@@ -295,7 +332,10 @@ extension SerialPort {
 		let bytesWritten = write(fileDescriptor, buffer, size)
 		return bytesWritten
 	}
-
+	
+	/// Writes to the `SerialPort`. You can also think of this as sending data.
+	/// - Parameter data: The chunk of data you want to send.
+	/// - Returns: Count of bytes written
 	public func writeData(_ data: Data) throws -> Int {
 		let size = data.count
 		let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: size)
@@ -308,7 +348,10 @@ extension SerialPort {
 		let bytesWritten = try writeBytes(from: buffer, size: size)
 		return bytesWritten
 	}
-
+	
+	/// Writes to the `SerialPort`. You can also think of this as sending data.
+	/// - Parameter string: String of characters you wish to send.
+	/// - Returns: Count of bytes written.
 	public func writeString(_ string: String) throws -> Int {
 		guard let data = string.data(using: String.Encoding.utf8) else {
 			throw PortError.stringsMustBeUTF8
@@ -316,7 +359,10 @@ extension SerialPort {
 
 		return try writeData(data)
 	}
-
+	
+	/// Writes to the `SerialPort`. You can also think of this as sending data.
+	/// - Parameter character: The single `UnicodeScalar` to write to the buffer.
+	/// - Returns: Count of byte(s) written.
 	public func writeChar(_ character: UnicodeScalar) throws -> Int{
 		let stringEquiv = String(character)
 		let bytesWritten = try writeString(stringEquiv)
