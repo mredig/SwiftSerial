@@ -55,3 +55,7 @@ method, where you need to know exactly how many bytes or lines to read.
 * BaudRate has UInt initializer
 * Added `SwiftTerminal` demo to connect and interface with a serial connection
 * I kept the original methods that I changed around, but marked as deprecated. I intend to eventually remove them, but I don't want to disrupt anyone relying on this in the meantime.
+
+##### What needs fixing?
+* I made these changes before I had a better grasp of how async/await streams worked. Turns out I used them wrong! All the AsyncStream types need to create a new copy of the stream instead of returning the same "instance".
+* Swift6 concurrency support
